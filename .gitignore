@@ -1,0 +1,9 @@
+# binaries
+/target
+
+# aoc inputs
+/**/input
+
+# ide
+.vscode/
+.idea/
