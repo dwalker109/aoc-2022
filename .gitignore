@@ -2,8 +2,9 @@
 /target
 
 # aoc inputs
-/**/input
+days/**/input
 
 # ide
 .vscode/
 .idea/
+aoc-2022.iml

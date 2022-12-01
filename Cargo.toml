@@ -1,2 +1,7 @@
 [workspace]
-members = ["day??"]
+members = ["days/*"]
+
+[workspace.dependencies]
+env_logger = "0.10.0"
+logging_timer = "1.1.0"
+
