@@ -1,16 +1,9 @@
 static INPUT: &str = include_str!("../input");
 
 fn main() {
-    env_logger::init();
-
-    let r1 = part1(INPUT);
-    let r2 = part2(INPUT);
-
-    println!("Part 1: {r1}");
-    println!("Part 2: {r2}");
+    aoc_shared::runner::solve(|| part1(INPUT), || part2(INPUT))
 }
 
-#[logging_timer::time]
 fn part1(input: &'static str) -> usize {
     input
         .lines()
@@ -32,7 +25,6 @@ fn part1(input: &'static str) -> usize {
         .sum()
 }
 
-#[logging_timer::time]
 fn part2(input: &'static str) -> usize {
     input
         .lines()
