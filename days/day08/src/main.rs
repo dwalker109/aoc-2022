@@ -1,7 +1,6 @@
-#![feature(is_sorted)]
-#![feature(array_windows)]
+#![feature(control_flow_enum)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::ControlFlow};
 
 static INPUT: &str = include_str!("../input");
 
@@ -12,37 +11,37 @@ fn main() {
 fn part1(input: &'static str) -> usize {
     let trees = Trees::from(input);
 
-    let mut visible = trees
+    trees
         .grid
         .iter()
         .filter(|(&xy, _)| trees.is_ext_visible(xy))
-        .collect::<Vec<_>>();
-
-    // visible.sort();
-    // dbg!(&visible);
-
-    visible.len()
+        .count()
 }
 
 fn part2(input: &'static str) -> usize {
-    0
+    let trees = Trees::from(input);
+
+    trees
+        .grid
+        .iter()
+        .map(|(&xy, _)| trees.calc_scenic_score(xy))
+        .max()
+        .unwrap() as usize
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, PartialOrd, Ord)]
+#[derive(Hash, Eq, PartialEq, Clone, Copy)]
 struct Xy(usize, usize);
 
 struct Trees {
     grid: HashMap<Xy, u8>,
-    width: usize,
-    height: usize,
+    max_dim: usize,
 }
 
 impl From<&str> for Trees {
     fn from(raw: &str) -> Self {
-        let width = raw.lines().count() - 1;
-        let height = width;
+        let max_dim = raw.lines().count() - 1;
 
-        let mut grid = HashMap::with_capacity(width * height);
+        let mut grid = HashMap::with_capacity(max_dim * max_dim);
 
         for (y, l) in raw.lines().enumerate() {
             for (x, c) in l.chars().enumerate() {
@@ -52,8 +51,7 @@ impl From<&str> for Trees {
 
         Self {
             grid,
-            width,
-            height,
+            max_dim
         }
     }
 }
@@ -61,18 +59,44 @@ impl From<&str> for Trees {
 impl Trees {
     fn is_ext_visible(&self, Xy(sx, sy): Xy) -> bool {
         let l_path = (0..=sx).map(|cx| self.grid.get(&Xy(cx, sy)).unwrap()).rev();
-        let r_path = (sx..=self.width).map(|cx| self.grid.get(&Xy(cx, sy)).unwrap());
+        let r_path = (sx..=self.max_dim).map(|cx| self.grid.get(&Xy(cx, sy)).unwrap());
         let t_path = (0..=sy).map(|cy| self.grid.get(&Xy(sx, cy)).unwrap()).rev();
-        let b_path = (sy..=self.height).map(|cy| self.grid.get(&Xy(sx, cy)).unwrap());
+        let b_path = (sy..=self.max_dim).map(|cy| self.grid.get(&Xy(sx, cy)).unwrap());
 
-        let los = |l: Vec<&u8>| l[1..].iter().all(|&x| x < l[0]);
+        fn do_calc<'a>(mut l: impl Iterator<Item = &'a u8>) -> bool {
+            let x = l.next().unwrap();
 
-        let los_r = los(l_path.collect())
-            || los(r_path.collect())
-            || los(t_path.collect())
-            || los(b_path.collect());
+            l.all(|y| y < x)
+        }
 
-        los_r
+        do_calc(l_path)
+            || do_calc(r_path)
+            || do_calc(t_path)
+            || do_calc(b_path)
+    }
+
+    fn calc_scenic_score(&self, Xy(sx, sy): Xy) -> usize {
+        let l_path = (0..=sx).map(|cx| self.grid.get(&Xy(cx, sy)).unwrap()).rev();
+        let r_path = (sx..=self.max_dim).map(|cx| self.grid.get(&Xy(cx, sy)).unwrap());
+        let t_path = (0..=sy).map(|cy| self.grid.get(&Xy(sx, cy)).unwrap()).rev();
+        let b_path = (sy..=self.max_dim).map(|cy| self.grid.get(&Xy(sx, cy)).unwrap());
+
+        fn do_calc<'a>(mut l: impl Iterator<Item = &'a u8>) -> usize {
+            let x = l.next().unwrap();
+
+            let res = l.try_fold(0, |mut acc, cur| {
+                acc += 1;
+                if cur >= x {
+                    ControlFlow::Break(acc)
+                } else {
+                    ControlFlow::Continue(acc)
+                }
+            });
+
+            res.break_value().or(res.continue_value()).unwrap()
+        }
+
+        do_calc(l_path) * do_calc(r_path) * do_calc(t_path) * do_calc(b_path)
     }
 }
 
@@ -87,6 +111,6 @@ mod tests {
 
     #[test]
     fn part2() {
-        assert_eq!(super::part2(INPUT), 999);
+        assert_eq!(super::part2(INPUT), 8);
     }
 }
