@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, str::FromStr};
 
 use serde_json::Value;
 
@@ -9,31 +9,43 @@ fn main() {
 }
 
 fn part1(input: &'static str) -> usize {
-    let pairs = input.split("\n\n").map(|p| {
+    let pairs = parse(input);
+
+    pairs
+        .enumerate()
+        .filter_map(|(i, [l, r])| matches!(cmp(&l, &r), Ordering::Less).then(|| i + 1))
+        .sum()
+}
+
+fn part2(input: &'static str) -> usize {
+    let dividers = [Value::from_str("[[2]]").unwrap(), Value::from_str("[[6]]").unwrap()];
+
+    let mut pairs = parse(input)
+        .flatten()
+        .chain(dividers.clone().into_iter())
+        .collect::<Vec<_>>();
+
+    pairs.sort_by(cmp);
+
+    pairs
+        .iter()
+        .enumerate()
+        .filter_map(|(i, v)| dividers.contains(&v).then(|| i + 1))
+        .product()
+}
+
+fn parse(input: &'static str) -> impl Iterator<Item = [Value; 2]> {
+    input.split("\n\n").map(|p| {
         <[Value; 2]>::try_from(
             p.lines()
                 .map(|l| serde_json::from_str::<Value>(l).unwrap())
                 .collect::<Vec<_>>(),
         )
         .unwrap()
-    });
-
-    pairs
-        .enumerate()
-        .filter_map(|(i, [l, r])| matches!(compare(l, r), Sorted::Yes).then(|| i + 1))
-        .sum()
+    })
 }
 
-#[derive(Debug)]
-enum Sorted {
-    Yes,
-    No,
-    Undecided,
-}
-
-fn compare(l: Value, r: Value) -> Sorted {
-    println!("Comparing {} with {}", l, r);
-
+fn cmp(l: &Value, r: &Value) -> Ordering {
     if l.is_array() && r.is_array() {
         let lv = l.as_array().unwrap();
         let rv = r.as_array().unwrap();
@@ -42,39 +54,35 @@ fn compare(l: Value, r: Value) -> Sorted {
             let (lv, rv) = (lv.get(i), rv.get(i));
 
             if rv.is_none() {
-                return Sorted::No;
+                return Ordering::Greater;
             }
 
             if lv.is_none() {
-                return Sorted::Yes;
+                return Ordering::Less;
             }
 
-            let next = compare(lv.unwrap().to_owned(), rv.unwrap().to_owned());
+            let next = cmp(lv.unwrap(), rv.unwrap());
 
-            if matches!(next, Sorted::Undecided) {
+            if matches!(next, Ordering::Equal) {
                 continue;
             }
 
             return next;
         }
 
-        return Sorted::Undecided;
+        return Ordering::Equal;
     }
 
     if l.is_number() && r.is_number() {
-        return match l.as_i64().unwrap().cmp(&r.as_i64().unwrap()) {
-            Ordering::Less => Sorted::Yes,
-            Ordering::Equal => Sorted::Undecided,
-            Ordering::Greater => Sorted::No,
-        };
+        return l.as_i64().unwrap().cmp(&r.as_i64().unwrap());
     }
 
     if l.is_number() && r.is_array() {
-        return compare(Value::from(vec![l.as_i64().unwrap()]), r);
+        return cmp(&Value::from(vec![l.as_i64().unwrap()]), r);
     }
 
     if l.is_array() && r.is_number() {
-        return compare(l, Value::from(vec![r.as_i64().unwrap()]));
+        return cmp(l, &Value::from(vec![r.as_i64().unwrap()]));
     }
 
     unreachable!();
@@ -86,18 +94,11 @@ mod tests {
 
     #[test]
     fn part1() {
-        assert_eq!(super::part1(INPUT), 13)
-    }
-
-    #[test]
-    fn part1_ex() {
-        assert_eq!(super::part1("[[],8]\n[[3]]"), 1);
-        // assert_eq!(super::part1(INPUT), 13)
-        // assert_eq!(super::part1(INPUT), 13)
+        assert_eq!(super::part1(INPUT), 13);
     }
 
     #[test]
     fn part2() {
-        assert_eq!(super::part2(INPUT), 0)
+        assert_eq!(super::part2(INPUT), 140);
     }
 }
