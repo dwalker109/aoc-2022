@@ -1,6 +1,6 @@
-use std::{cmp::Ordering, str::FromStr};
+use packet::Packet;
 
-use serde_json::Value;
+mod packet;
 
 static INPUT: &str = include_str!("../input");
 
@@ -9,83 +9,35 @@ fn main() {
 }
 
 fn part1(input: &'static str) -> usize {
-    let pairs = parse(input);
+    let pairs = parse_pairs(input);
 
     pairs
         .enumerate()
-        .filter_map(|(i, [l, r])| matches!(cmp(&l, &r), Ordering::Less).then(|| i + 1))
+        .filter_map(|(i, [l, r])| l.lt(&r).then_some(i + 1))
         .sum()
 }
 
 fn part2(input: &'static str) -> usize {
-    let dividers = [Value::from_str("[[2]]").unwrap(), Value::from_str("[[6]]").unwrap()];
+    let dividers = [Packet::from("[[2]]"), Packet::from("[[6]]")];
 
-    let mut pairs = parse(input)
+    let mut pairs = parse_pairs(input)
         .flatten()
         .chain(dividers.clone().into_iter())
         .collect::<Vec<_>>();
 
-    pairs.sort_by(cmp);
+    pairs.sort();
 
     pairs
         .iter()
         .enumerate()
-        .filter_map(|(i, v)| dividers.contains(&v).then(|| i + 1))
+        .filter_map(|(i, v)| dividers.contains(v).then_some(i + 1))
         .product()
 }
 
-fn parse(input: &'static str) -> impl Iterator<Item = [Value; 2]> {
-    input.split("\n\n").map(|p| {
-        <[Value; 2]>::try_from(
-            p.lines()
-                .map(|l| serde_json::from_str::<Value>(l).unwrap())
-                .collect::<Vec<_>>(),
-        )
-        .unwrap()
-    })
-}
-
-fn cmp(l: &Value, r: &Value) -> Ordering {
-    if l.is_array() && r.is_array() {
-        let lv = l.as_array().unwrap();
-        let rv = r.as_array().unwrap();
-
-        for i in 0..std::cmp::max(lv.len(), rv.len()) {
-            let (lv, rv) = (lv.get(i), rv.get(i));
-
-            if rv.is_none() {
-                return Ordering::Greater;
-            }
-
-            if lv.is_none() {
-                return Ordering::Less;
-            }
-
-            let next = cmp(lv.unwrap(), rv.unwrap());
-
-            if matches!(next, Ordering::Equal) {
-                continue;
-            }
-
-            return next;
-        }
-
-        return Ordering::Equal;
-    }
-
-    if l.is_number() && r.is_number() {
-        return l.as_i64().unwrap().cmp(&r.as_i64().unwrap());
-    }
-
-    if l.is_number() && r.is_array() {
-        return cmp(&Value::from(vec![l.as_i64().unwrap()]), r);
-    }
-
-    if l.is_array() && r.is_number() {
-        return cmp(l, &Value::from(vec![r.as_i64().unwrap()]));
-    }
-
-    unreachable!();
+fn parse_pairs(input: &'static str) -> impl Iterator<Item = [Packet; 2]> {
+    input
+        .split("\n\n")
+        .map(|p| <[Packet; 2]>::try_from(p.lines().map(Packet::from).collect::<Vec<_>>()).unwrap())
 }
 
 #[cfg(test)]
