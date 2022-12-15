@@ -1,85 +1,112 @@
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::{collections::HashSet, ops::Range};
 
 static INPUT: &str = include_str!("../input");
 
 fn main() {
-    aoc_shared::runner::solve(|| part1::<2000000>(INPUT), || part2(INPUT));
+    aoc_shared::runner::solve(|| part1::<2000000>(INPUT), || part2::<0, 4000000>(INPUT));
 }
 
-fn part1<const TARGET_Y: isize>(input: &'static str) -> usize {
-    let space = Space::from(input);
-    space
-        .0
-        .iter()
-        .filter_map(|(_, d)| space.check_row(&TARGET_Y, d))
-        .flatten()
-        .collect::<HashSet<_>>()
-        .len()
+fn part1<const Y: isize>(input: &'static str) -> usize {
+    let caves = Caves::from(input);
+
+    caves.x_bounds().fold(0, |mut acc, x| {
+        if caves
+            .sensors()
+            .any(|device| device.in_range(&Xy(x, Y)) && !caves.occupied(&Xy(x, Y)))
+        {
+            acc += 1
+        }
+
+        acc
+    })
 }
 
-fn part2(input: &'static str) -> usize {
-    todo!()
+fn part2<const MIN: isize, const MAX: isize>(input: &'static str) -> usize {
+    let caves = Caves::from(input);
+
+    let x_bounds = MIN..=MAX;
+    let y_bounds = MIN..=MAX;
+
+    let search_space = caves
+        .sensors()
+        .flat_map(|device| device.surrounding_points())
+        .filter(|Xy(x, y)| x_bounds.contains(x) && y_bounds.contains(y));
+
+    for Xy(x, y) in search_space {
+        let search_pos = &Xy(x, y);
+
+        if caves.sensors().all(|d| !d.in_range(search_pos)) {
+            return usize::try_from((x * 4000000) + y).unwrap();
+        }
+    }
+
+    unreachable!();
 }
 
-struct Space(HashMap<Xy, Device>);
+#[derive(Debug)]
+struct Caves(Vec<Device>, HashSet<Xy>);
 
-impl From<&str> for Space {
-    fn from(input: &str) -> Self {
-        Self(
-            input
-                .lines()
-                .flat_map(|l| {
-                    let [sx, sy, bx, by] = <[isize; 4]>::try_from(
-                        l.split_ascii_whitespace()
-                            .filter_map(|w| match w.contains('=') {
-                                true => Some(
-                                    w.chars()
-                                        .filter(|c| matches!(c, '0'..='9' | '-'))
-                                        .collect::<String>()
-                                        .parse::<isize>()
-                                        .unwrap(),
-                                ),
-                                false => None,
-                            })
-                            .collect::<Vec<_>>(),
-                    )
-                    .unwrap();
+impl Caves {
+    fn sensors(&self) -> impl Iterator<Item = &Device> {
+        self.0
+            .iter()
+            .filter(|device| matches!(device, Device::Sensor(..)))
+    }
 
-                    let manhattan = sx.abs_diff(bx) + sy.abs_diff(by);
+    fn occupied(&self, xy: &Xy) -> bool {
+        self.1.contains(xy)
+    }
 
-                    [
-                        (
-                            Xy(sx, sy),
-                            Device::Sensor(Xy(sx, sy), isize::try_from(manhattan).unwrap()),
-                        ),
-                        (Xy(bx, by), Device::Beacon(Xy(bx, by))),
-                    ]
-                })
-                .collect(),
-        )
+    fn x_bounds(&self) -> Range<isize> {
+        let all_x_bounds = self
+            .sensors()
+            .map(|device| device.x_bounds())
+            .collect::<Vec<_>>();
+
+        (all_x_bounds.iter().min_by_key(|(l, _)| l).unwrap().0)
+            ..(all_x_bounds.iter().max_by_key(|(_, r)| r).unwrap().1)
     }
 }
 
-impl Space {
-    fn check_row(&self, row_y: &isize, device: &Device) -> Option<Vec<isize>> {
-        match device {
-            Device::Sensor(Xy(_, sy), manhattan) => {
-                if sy > &(row_y + manhattan) || sy < &(row_y - manhattan) {
-                    return None;
-                }
-
-                Some(
-                    device
-                        .scope(row_y)
-                        .iter()
-                        .filter_map(|Xy(sx, sy)| (sy == row_y).then_some(sx))
-                        .filter_map(|x| (!self.0.contains_key(&Xy(*x, *row_y))).then_some(x))
-                        .copied()
-                        .collect(),
+impl From<&str> for Caves {
+    fn from(input: &str) -> Self {
+        let c = input
+            .lines()
+            .flat_map(|l| {
+                let [sx, sy, bx, by] = <[isize; 4]>::try_from(
+                    l.split_ascii_whitespace()
+                        .filter_map(|w| match w.contains('=') {
+                            true => Some(
+                                w.chars()
+                                    .filter(|c| matches!(c, '0'..='9' | '-'))
+                                    .collect::<String>()
+                                    .parse::<isize>()
+                                    .unwrap(),
+                            ),
+                            false => None,
+                        })
+                        .collect::<Vec<_>>(),
                 )
-            }
-            Device::Beacon(_) => None,
-        }
+                .unwrap();
+
+                let manhattan = sx.abs_diff(bx) + sy.abs_diff(by);
+
+                [
+                    Device::Sensor(Xy(sx, sy), isize::try_from(manhattan).unwrap()),
+                    Device::Beacon(Xy(bx, by)),
+                ]
+            })
+            .collect::<Vec<_>>();
+
+        let o = c
+            .iter()
+            .map(|device| match device {
+                Device::Sensor(xy, _) => *xy,
+                Device::Beacon(xy) => *xy,
+            })
+            .collect();
+
+        Self(c, o)
     }
 }
 
@@ -93,31 +120,40 @@ enum Device {
 }
 
 impl Device {
-    fn scope(&self, row_y: &isize) -> Vec<Xy> {
+    fn x_bounds(&self) -> (isize, isize) {
         match self {
-            Device::Sensor(Xy(sx, sy), manhattan) => {
-                let mut scope = (sx - manhattan..=sx + manhattan)
-                    .filter(|_| sy==row_y)
-                    .map(|x| Xy(x, *sy))
-                    .collect::<Vec<_>>();
+            Device::Sensor(Xy(x, _), manhattan) => (x - manhattan - 1, x + manhattan + 1),
+            Device::Beacon(_) => panic!("beacons have no x bounds"),
+        }
+    }
+
+    fn in_range(&self, Xy(search_x, search_y): &Xy) -> bool {
+        match self {
+            Device::Sensor(Xy(x, y), manhattan) => {
+                (x.abs_diff(*search_x) as isize + y.abs_diff(*search_y) as isize) <= *manhattan
+            }
+            Device::Beacon(_) => panic!("beacons have no range"),
+        }
+    }
+
+    fn surrounding_points(&self) -> Vec<Xy> {
+        match self {
+            Device::Sensor(Xy(x, y), manhattan) => {
+                let mut points = Vec::with_capacity((*manhattan as usize + 1) * 4);
+                points.push(Xy(x - manhattan - 1, *y));
+                points.push(Xy(x + manhattan + 1, *y));
 
                 for y_offset in 1..=*manhattan {
-                    let mut above = (sx - manhattan + y_offset..=sx + manhattan - y_offset)
-                        .map(|x| Xy(x, sy + y_offset))
-                        .filter(|Xy(_, y)| y==row_y)
-                        .collect::<Vec<_>>();
-                    let mut below = (sx - manhattan + y_offset..=sx + manhattan - y_offset)
-                        .map(|x| Xy(x, sy - y_offset))
-                        .filter(|Xy(_, y)| y==row_y)
-                        .collect::<Vec<_>>();
+                    points.push(Xy(x - 1 - manhattan + y_offset, y + y_offset));
+                    points.push(Xy(x + 1 + manhattan - y_offset, y + y_offset));
 
-                    scope.append(&mut above);
-                    scope.append(&mut below);
+                    points.push(Xy(x - 1 - manhattan + y_offset, y - y_offset));
+                    points.push(Xy(x + 1 + manhattan - y_offset, y - y_offset));
                 }
 
-                scope
+                points
             }
-            Device::Beacon(_) => panic!("beacons have no scope"),
+            Device::Beacon(_) => panic!("beacons have no adjacent points"),
         }
     }
 }
@@ -133,6 +169,6 @@ mod tests {
 
     #[test]
     fn part2() {
-        assert_eq!(super::part2(INPUT), 0)
+        assert_eq!(super::part2::<0, 20>(INPUT), 56000011)
     }
 }
