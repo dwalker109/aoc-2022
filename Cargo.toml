@@ -1,5 +1,5 @@
 [workspace]
-members = ["days/*"]
+members = ["days/day17"]
 
 [workspace.dependencies]
 aoc_shared = { git = "https://github.com/dwalker109/aoc-shared" }
