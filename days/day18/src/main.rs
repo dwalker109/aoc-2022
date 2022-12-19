@@ -11,7 +11,7 @@ fn part1(input: &'static str) -> usize {
 }
 
 fn part2(input: &'static str) -> usize {
-    todo!()
+    Droplet::from(input).external_only_surface_area()
 }
 
 #[cfg(test)]
@@ -68,6 +68,15 @@ mod voxel {
                 *self + z_offset,
             ]
         }
+
+        pub fn within(&self, min: Self, max: Self) -> bool {
+            self.x() >= min.x()
+                && self.y() >= min.y()
+                && self.z() >= min.z()
+                && self.x() <= max.x()
+                && self.y() <= max.y()
+                && self.z() <= max.z()
+        }
     }
 
     impl From<&str> for Voxel {
@@ -103,11 +112,12 @@ mod voxel {
 
 mod lava {
     use crate::voxel::{Voxel, FACES};
-    use std::collections::HashSet;
+    use std::collections::{HashSet, VecDeque};
 
     #[derive(Debug)]
     pub struct Droplet {
         scan: HashSet<Voxel>,
+        limit: (Voxel, Voxel),
     }
 
     impl Droplet {
@@ -117,13 +127,52 @@ mod lava {
                     - HashSet::from(v.adjacent()).intersection(&self.scan).count())
             })
         }
+
+        pub fn external_only_surface_area(&self) -> usize {
+            let flood = self.flood_outer();
+
+            self.scan
+                .iter()
+                .map(|v| HashSet::from(v.adjacent()).intersection(&flood).count())
+                .sum()
+        }
+
+        fn flood_outer(&self) -> HashSet<Voxel> {
+            let mut queue = VecDeque::new();
+            let mut visited = HashSet::new();
+            let mut flood = HashSet::new();
+
+            let (min, max) = self.limit;
+            queue.push_back(min);
+            queue.push_back(max);
+
+            while let Some(v) = queue.pop_front() {
+                flood.insert(v);
+
+                for adj in v.adjacent() {
+                    if adj.within(min, max) && !visited.contains(&adj) && !self.scan.contains(&adj)
+                    {
+                        visited.insert(adj);
+                        queue.push_front(adj);
+                    }
+                }
+            }
+
+            flood
+        }
     }
 
     impl From<&str> for Droplet {
         fn from(value: &str) -> Self {
-            let scan = value.lines().map(Voxel::from).collect();
+            let scan = value.lines().map(Voxel::from).collect::<HashSet<_>>();
 
-            Self { scan }
+            let min = Voxel::new(-1, -1, -1);
+            let max = Voxel::new(25, 25, 25);
+
+            Self {
+                scan,
+                limit: (min, max),
+            }
         }
     }
 }
