@@ -22,7 +22,23 @@ fn part1(input: &'static str) -> usize {
 }
 
 fn part2(input: &'static str) -> usize {
-    todo!()
+    let mut ch = Chamber::default();
+    let mut r = rock::generator();
+    let mut j = jetstreams(input);
+
+    // 1000000000000
+
+    loop {
+        ch.add(r.next().unwrap());
+        ch.run(&mut j);
+
+        if ch.cycle_detected().len() > 10 {
+            println!("{:?}", ch.cycle_detected());
+            break;
+        }
+    }
+
+    usize::try_from(ch.height()).unwrap()
 }
 
 #[cfg(test)]
@@ -33,9 +49,14 @@ mod tests {
     fn part1() {
         assert_eq!(super::part1(INPUT), 3068);
     }
+
+    #[test]
+    fn part2() {
+        assert_eq!(super::part2(INPUT), 1514285714288);
+    }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, PartialOrd, Ord)]
 pub struct Xy(isize, isize);
 
 impl Xy {
@@ -65,7 +86,7 @@ impl Sub for Xy {
 }
 
 mod chamber {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet, VecDeque};
 
     use crate::{
         rock::{Rock, M},
@@ -82,6 +103,9 @@ mod chamber {
         active: Option<(Rock, Xy, Vec<(Xy, M)>)>,
         height: isize,
         blocks: usize,
+        height_deltas: VecDeque<u8>,
+        cycle_data: HashMap<(Rock, Jet, VecDeque<u8>), u8>,
+        cycle_detected: Vec<(usize, isize)>,
     }
 
     impl Chamber {
@@ -95,6 +119,10 @@ mod chamber {
 
         pub fn num_blocks(&self) -> usize {
             self.blocks
+        }
+
+        pub fn cycle_detected(&self) -> Vec<(usize, isize)> {
+            self.cycle_detected.clone()
         }
 
         pub fn add(&mut self, rock: Rock) {
@@ -128,8 +156,20 @@ mod chamber {
             };
 
             loop {
-                match jetstreams.next().unwrap() {
-                    Jet::L => {
+                let jetstream = jetstreams.next().unwrap();
+
+                if self
+                    .cycle_data
+                    .entry((rock, jetstream, self.height_deltas.clone()))
+                    .and_modify(|n| *n += 1)
+                    .or_default()
+                    > &mut 100
+                {
+                    self.cycle_detected.push((self.num_blocks(), self.height));
+                }
+
+                match jetstream {
+                    Jet::L(_) => {
                         let next = positions
                             .iter()
                             .map(|(xy, m)| (*xy - Xy(1, 0), *m))
@@ -138,7 +178,7 @@ mod chamber {
                             positions = next;
                         }
                     }
-                    Jet::R => {
+                    Jet::R(_) => {
                         let next = positions
                             .iter()
                             .map(|(xy, m)| (*xy + Xy(1, 0), *m))
@@ -160,36 +200,49 @@ mod chamber {
                 }
             }
 
-            self.blocks += 1;
-
-            self.height = std::cmp::max(
+            let curr_height = std::cmp::max(
                 self.height,
                 positions.iter().max_by_key(|p| p.0.y()).unwrap().0.y() + 1,
             );
 
+            self.height_deltas
+                .push_back(u8::try_from(curr_height - self.height).unwrap());
+
+            if self.height_deltas.len() == 11 {
+                self.height_deltas.pop_front();
+            }
+
+            self.height = curr_height;
+            self.blocks += 1;
             self.settled
                 .extend(positions.into_iter().filter(|(_, m)| matches!(m, M::Rock)));
         }
     }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub enum Jet {
-        L,
-        R,
+        L(usize),
+        R(usize),
     }
 
-    impl From<char> for Jet {
-        fn from(c: char) -> Self {
+    impl From<(usize, char)> for Jet {
+        fn from((n, c): (usize, char)) -> Self {
             match c {
-                '<' => Self::L,
-                '>' => Self::R,
+                '<' => Self::L(n),
+                '>' => Self::R(n),
                 _ => panic!("invalid dir ({c})"),
             }
         }
     }
 
     pub fn jetstreams(input: &'static str) -> impl Iterator<Item = Jet> {
-        input.trim().chars().map(Jet::from).into_iter().cycle()
+        input
+            .trim()
+            .chars()
+            .enumerate()
+            .map(Jet::from)
+            .into_iter()
+            .cycle()
     }
 }
 
@@ -208,13 +261,13 @@ mod rock {
         .cycle()
     }
 
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub enum M {
         Rock,
         Space,
     }
 
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub enum Rock {
         T1([(Xy, M); 4]),
         T2([(Xy, M); 9]),
