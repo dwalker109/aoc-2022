@@ -1,6 +1,31 @@
-#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Xy(pub usize, pub usize);
 
+impl Xy {
+    pub fn new(x: usize, y: usize) -> Self {
+        Xy(x, y)
+    }
+
+    pub fn x(&self) -> &usize {
+        &self.0
+    }
+
+    pub fn y(&self) -> &usize {
+        &self.1
+    }
+
+    pub fn adj(&self, dir: Dir) -> Xy {
+        let Xy(x, y) = self;
+        match dir {
+            Dir::Up => Xy(*x, y - 1),
+            Dir::Down => Xy(*x, y + 1),
+            Dir::Left => Xy(x - 1, *y),
+            Dir::Right => Xy(x + 1, *y),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum Tile {
     Open,
     Wall,
@@ -24,11 +49,12 @@ impl TryFrom<char> for Tile {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Dir {
-    Up,
-    Down,
-    Left,
-    Right,
+    Right = 0,
+    Down = 1,
+    Left = 2,
+    Up = 3,
 }
 
 impl Dir {
@@ -58,7 +84,8 @@ impl Dir {
     }
 }
 
+#[derive(Debug)]
 pub enum Step {
-    Fwd(usize),
+    Fwd(isize),
     Trn(Dir),
 }
