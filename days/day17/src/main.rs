@@ -31,11 +31,6 @@ fn part2(input: &'static str) -> usize {
     loop {
         ch.add(r.next().unwrap());
         ch.run(&mut j);
-
-        if ch.cycle_detected().len() > 10 {
-            println!("{:?}", ch.cycle_detected());
-            break;
-        }
     }
 
     usize::try_from(ch.height()).unwrap()
@@ -86,7 +81,7 @@ impl Sub for Xy {
 }
 
 mod chamber {
-    use std::collections::{HashMap, HashSet, VecDeque};
+    use std::collections::{hash_map::Entry, HashMap, HashSet};
 
     use crate::{
         rock::{Rock, M},
@@ -103,9 +98,8 @@ mod chamber {
         active: Option<(Rock, Xy, Vec<(Xy, M)>)>,
         height: isize,
         blocks: usize,
-        height_deltas: VecDeque<u8>,
-        cycle_data: HashMap<(Rock, Jet, VecDeque<u8>), u8>,
-        cycle_detected: Vec<(usize, isize)>,
+        height_deltas: [usize; 32],
+        cycle_data: HashMap<(Rock, Jet, [usize; 32]), (usize, isize)>,
     }
 
     impl Chamber {
@@ -121,9 +115,9 @@ mod chamber {
             self.blocks
         }
 
-        pub fn cycle_detected(&self) -> Vec<(usize, isize)> {
-            self.cycle_detected.clone()
-        }
+        // pub fn cycle_detected(&self) -> Vec<(usize, isize)> {
+        //     self.cycle_detected.clone()
+        // }
 
         pub fn add(&mut self, rock: Rock) {
             let (rock, mut positions) = match self.active.take() {
@@ -155,18 +149,26 @@ mod chamber {
                 }
             };
 
+            let key = (
+                rock,
+                *jetstreams.peekable().peek().unwrap(),
+                self.height_deltas,
+            );
+
+            match self.cycle_data.entry(key) {
+                Entry::Occupied(e) => {
+                    let (prev_blocks, prev_height) = e.get();
+                    let cycle_blocks = self.blocks - prev_blocks;
+                    let cycle_height = self.height - prev_height;
+                    println!("{cycle_blocks}, {cycle_height}");
+                }
+                Entry::Vacant(e) => {
+                    e.insert((self.blocks, self.height));
+                }
+            }
+
             loop {
                 let jetstream = jetstreams.next().unwrap();
-
-                if self
-                    .cycle_data
-                    .entry((rock, jetstream, self.height_deltas.clone()))
-                    .and_modify(|n| *n += 1)
-                    .or_default()
-                    > &mut 100
-                {
-                    self.cycle_detected.push((self.num_blocks(), self.height));
-                }
 
                 match jetstream {
                     Jet::L(_) => {
@@ -205,12 +207,8 @@ mod chamber {
                 positions.iter().max_by_key(|p| p.0.y()).unwrap().0.y() + 1,
             );
 
-            self.height_deltas
-                .push_back(u8::try_from(curr_height - self.height).unwrap());
-
-            if self.height_deltas.len() == 11 {
-                self.height_deltas.pop_front();
-            }
+            self.height_deltas[self.num_blocks() % 32] =
+                usize::try_from(curr_height - self.height).unwrap();
 
             self.height = curr_height;
             self.blocks += 1;
