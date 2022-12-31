@@ -13,7 +13,10 @@ I needed to look at hints to progress.
 
 Quite a challenge. I obtained star 2 trying a super stupid solution I really didn't
 think would work, which I read about on the subreddit. It worked, but not
-on the test data. I still need to finish this day properly.
+on the test data. ~I still need to finish this day properly.~
+
+Day 16 now completes in a *reasonable* time (5 secs) and works on test and real 
+input. Happy enough to move on.
 
 ### Day 17
 
