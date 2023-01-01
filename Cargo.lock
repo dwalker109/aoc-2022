@@ -65,41 +65,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "day16"
-version = "0.1.0"
-dependencies = [
- "aoc_shared",
-]
-
-[[package]]
-name = "day18"
-version = "0.1.0"
-dependencies = [
- "aoc_shared",
-]
-
-[[package]]
-name = "day20"
-version = "0.1.0"
-dependencies = [
- "aoc_shared",
-]
-
-[[package]]
-name = "day21"
-version = "0.1.0"
-dependencies = [
- "aoc_shared",
-]
-
-[[package]]
-name = "day22"
-version = "0.1.0"
-dependencies = [
- "aoc_shared",
-]
-
-[[package]]
 name = "eyre"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"

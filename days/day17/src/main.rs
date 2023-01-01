@@ -26,9 +26,7 @@ fn part2(input: &'static str) -> usize {
     let mut r = rock::generator();
     let mut j = jetstreams(input);
 
-    // 1000000000000
-
-    loop {
+    while ch.num_blocks() < 1000000000000 {
         ch.add(r.next().unwrap());
         ch.run(&mut j);
     }
@@ -132,7 +130,38 @@ mod chamber {
         }
 
         pub fn run(&mut self, jetstreams: &mut impl Iterator<Item = Jet>) {
+            let mut js = jetstreams.peekable();
+
             let (rock, origin, mut positions) = self.active.take().unwrap();
+
+            let key = (rock, *js.peek().unwrap(), self.height_deltas);
+
+            if self.num_blocks() > 20000 {
+                match self.cycle_data.entry(key) {
+                    Entry::Occupied(e) => {
+                        let (prev_blocks, prev_height) = e.get();
+
+                        let cycle_blocks = self.blocks - prev_blocks;
+                        let cycle_height = self.height - prev_height;
+
+                        let rep = (1000000000000 - prev_blocks) / cycle_blocks;
+
+                        self.blocks += cycle_blocks * rep;
+                        self.height = prev_height + (rep as isize * cycle_height);
+
+                        self.settled = self
+                            .settled
+                            .iter()
+                            .map(|(xy, m)| (Xy(xy.0, xy.1 + self.height), *m))
+                            .collect::<HashMap<_, _>>();
+
+                        self.cycle_data.clear();
+                    }
+                    Entry::Vacant(e) => {
+                        e.insert((self.blocks, self.height));
+                    }
+                }
+            }
 
             let can_move = |(xy, m): &(Xy, M)| {
                 if matches!(m, M::Space) {
@@ -149,26 +178,8 @@ mod chamber {
                 }
             };
 
-            let key = (
-                rock,
-                *jetstreams.peekable().peek().unwrap(),
-                self.height_deltas,
-            );
-
-            match self.cycle_data.entry(key) {
-                Entry::Occupied(e) => {
-                    let (prev_blocks, prev_height) = e.get();
-                    let cycle_blocks = self.blocks - prev_blocks;
-                    let cycle_height = self.height - prev_height;
-                    println!("{cycle_blocks}, {cycle_height}");
-                }
-                Entry::Vacant(e) => {
-                    e.insert((self.blocks, self.height));
-                }
-            }
-
             loop {
-                let jetstream = jetstreams.next().unwrap();
+                let jetstream = js.next().unwrap();
 
                 match jetstream {
                     Jet::L(_) => {
