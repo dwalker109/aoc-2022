@@ -14,13 +14,23 @@ fn part1(input: &'static str) -> usize {
 fn part2(input: &'static str) -> usize {
     let mut m = Monkeys::from(input);
 
-    m.0.insert("root", input.lines().filter_map(|l| {
-        l.starts_with("root").then(|| Monkey::Eql(&l[6..10], &l[13..17]))
-    }).next().unwrap());
+    m.0.insert(
+        "root",
+        input
+            .lines()
+            .filter_map(|l| {
+                l.starts_with("root")
+                    .then(|| Monkey::Eql(&l[6..10], &l[13..17]))
+            })
+            .next()
+            .unwrap(),
+    );
 
     m.0.insert("humn", Monkey::Unknown);
 
-    let root = m.0.get("root").unwrap();
+    let (l, r) = m.0.get("root").unwrap().parts();
+
+    todo!()
 }
 
 type Id = &'static str;
@@ -35,29 +45,47 @@ enum Monkey {
     Div(Id, Id),
 }
 
+impl Monkey {
+    fn parts(&self) -> (Id, Id) {
+        match self {
+            Monkey::Eql(l, r)
+            | Monkey::Add(l, r)
+            | Monkey::Sub(l, r)
+            | Monkey::Mul(l, r)
+            | Monkey::Div(l, r) => (l, r),
+            _ => unimplemented!(),
+        }
+    }
+}
+
 struct Monkeys(HashMap<Id, Monkey>);
 
 impl From<&'static str> for Monkeys {
     fn from(value: &'static str) -> Self {
-        Self(value.lines().map(|l| {
-            let m = &l[0..4];
-            let rest = &l[6..];
+        Self(
+            value
+                .lines()
+                .map(|l| {
+                    let m = &l[0..4];
+                    let rest = &l[6..];
 
-            if let Ok(n) = rest.parse::<usize>() {
-                (m, Monkey::Resolved(n))
-            } else {
-                let a = &rest[0..4];
-                let b = &rest[7..11];
+                    if let Ok(n) = rest.parse::<usize>() {
+                        (m, Monkey::Resolved(n))
+                    } else {
+                        let a = &rest[0..4];
+                        let b = &rest[7..11];
 
-                match rest.chars().nth(5).unwrap() {
-                    '+' => (m, Monkey::Add(a, b)),
-                    '-' => (m, Monkey::Sub(a, b)),
-                    '*' => (m, Monkey::Mul(a, b)),
-                    '/' => (m, Monkey::Div(a, b)),
-                    _ => panic!()
-                }
-            }
-        }).collect())
+                        match rest.chars().nth(5).unwrap() {
+                            '+' => (m, Monkey::Add(a, b)),
+                            '-' => (m, Monkey::Sub(a, b)),
+                            '*' => (m, Monkey::Mul(a, b)),
+                            '/' => (m, Monkey::Div(a, b)),
+                            _ => panic!(),
+                        }
+                    }
+                })
+                .collect(),
+        )
     }
 }
 
@@ -66,15 +94,11 @@ impl Monkeys {
         match self.0.get(m).unwrap() {
             Monkey::Resolved(n) => Some(*n),
             Monkey::Unknown => None,
-            Monkey::Eql(a, b) =>
-                Some((self.resolve(a)? == self.resolve(b)?) as usize),
-            Monkey::Add(a, b) =>
-                Some(self.resolve(a)? + self.resolve(b)?),
+            Monkey::Eql(a, b) => Some((self.resolve(a)? == self.resolve(b)?) as usize),
+            Monkey::Add(a, b) => Some(self.resolve(a)? + self.resolve(b)?),
             Monkey::Sub(a, b) => Some(self.resolve(a)? - self.resolve(b)?),
-            Monkey::Mul(a, b) =>
-                Some(self.resolve(a)? * self.resolve(b)?),
-            Monkey::Div(a, b) =>
-                Some(self.resolve(a)? / self.resolve(b)?),
+            Monkey::Mul(a, b) => Some(self.resolve(a)? * self.resolve(b)?),
+            Monkey::Div(a, b) => Some(self.resolve(a)? / self.resolve(b)?),
         }
     }
 
@@ -86,12 +110,13 @@ impl Monkeys {
             Monkey::Sub(l, r) => vec![self.route(l), self.route(r)],
             Monkey::Mul(l, r) => vec![self.route(l), self.route(r)],
             Monkey::Div(l, r) => vec![self.route(l), self.route(r)],
-        }.into_iter().flatten().collect()
+        }
+        .into_iter()
+        .flatten()
+        .collect()
     }
 
-    fn get_via(&self, entry: Id, target: Id) -> usize {
-
-    }
+    fn get_via(&self, entry: Id, target: Id) -> usize {}
 }
 
 #[cfg(test)]
