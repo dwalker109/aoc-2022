@@ -8,7 +8,7 @@ fn main() {
 
 fn part1(input: &'static str) -> usize {
     let m = Monkeys::from(input);
-    m.resolve("root")
+    m.resolve("root").unwrap()
 }
 
 fn part2(input: &'static str) -> usize {
@@ -20,7 +20,7 @@ fn part2(input: &'static str) -> usize {
 
     m.0.insert("humn", Monkey::Unknown);
 
-    todo!()
+    let root = m.0.get("root").unwrap();
 }
 
 type Id = &'static str;
@@ -62,14 +62,19 @@ impl From<&'static str> for Monkeys {
 }
 
 impl Monkeys {
-    fn resolve(&self, m: Id) -> usize {
+    fn resolve(&self, m: Id) -> Option<usize> {
         match self.0.get(m).unwrap() {
-            Monkey::Resolved(n) => *n,
-            Monkey::Add(a, b) => self.resolve(a) + self.resolve(b),
-            Monkey::Sub(a, b) => self.resolve(a) - self.resolve(b),
-            Monkey::Mul(a, b) => self.resolve(a) * self.resolve(b),
-            Monkey::Div(a, b) => self.resolve(a) / self.resolve(b),
-            _ => unimplemented!(),
+            Monkey::Resolved(n) => Some(*n),
+            Monkey::Unknown => None,
+            Monkey::Eql(a, b) =>
+                Some((self.resolve(a)? == self.resolve(b)?) as usize),
+            Monkey::Add(a, b) =>
+                Some(self.resolve(a)? + self.resolve(b)?),
+            Monkey::Sub(a, b) => Some(self.resolve(a)? - self.resolve(b)?),
+            Monkey::Mul(a, b) =>
+                Some(self.resolve(a)? * self.resolve(b)?),
+            Monkey::Div(a, b) =>
+                Some(self.resolve(a)? / self.resolve(b)?),
         }
     }
 
@@ -84,17 +89,8 @@ impl Monkeys {
         }.into_iter().flatten().collect()
     }
 
-    fn divine(&self) -> [(Id, usize); 2] {
-        let Some(Monkey::Eql(l, r)) = self.0.get("root") else {
-            unimplemented!();
-        };
+    fn get_via(&self, entry: Id, target: Id) -> usize {
 
-        let (target, search) = match self.route(l).contains(&"humn") {
-            true => (self.resolve(r), l),
-            false => (self.resolve(l), r),
-        };
-
-        todo!()
     }
 }
 
