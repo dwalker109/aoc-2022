@@ -11,7 +11,15 @@ fn part1(input: &'static str) -> usize {
     m.resolve("root")
 }
 
-fn part2(_input: &'static str) -> usize {
+fn part2(input: &'static str) -> usize {
+    let mut m = Monkeys::from(input);
+
+    m.0.insert("root", input.lines().filter_map(|l| {
+        l.starts_with("root").then(|| Monkey::Eql(&l[6..10], &l[13..17]))
+    }).next().unwrap());
+
+    m.0.insert("humn", Monkey::Unknown);
+
     todo!()
 }
 
@@ -19,6 +27,8 @@ type Id = &'static str;
 
 enum Monkey {
     Resolved(usize),
+    Unknown,
+    Eql(Id, Id),
     Add(Id, Id),
     Sub(Id, Id),
     Mul(Id, Id),
@@ -55,11 +65,36 @@ impl Monkeys {
     fn resolve(&self, m: Id) -> usize {
         match self.0.get(m).unwrap() {
             Monkey::Resolved(n) => *n,
-            Monkey::Add(a,b) => self.resolve(a) + self.resolve(b),
-            Monkey::Sub(a,b) => self.resolve(a) - self.resolve(b),
-            Monkey::Mul(a,b) => self.resolve(a) * self.resolve(b),
-            Monkey::Div(a,b) => self.resolve(a) / self.resolve(b),
+            Monkey::Add(a, b) => self.resolve(a) + self.resolve(b),
+            Monkey::Sub(a, b) => self.resolve(a) - self.resolve(b),
+            Monkey::Mul(a, b) => self.resolve(a) * self.resolve(b),
+            Monkey::Div(a, b) => self.resolve(a) / self.resolve(b),
+            _ => unimplemented!(),
         }
+    }
+
+    fn route(&self, m: Id) -> Vec<Id> {
+        match self.0.get(m).unwrap() {
+            Monkey::Resolved(..) | Monkey::Unknown => vec![vec![m]],
+            Monkey::Eql(l, r) => vec![self.route(l), self.route(r)],
+            Monkey::Add(l, r) => vec![self.route(l), self.route(r)],
+            Monkey::Sub(l, r) => vec![self.route(l), self.route(r)],
+            Monkey::Mul(l, r) => vec![self.route(l), self.route(r)],
+            Monkey::Div(l, r) => vec![self.route(l), self.route(r)],
+        }.into_iter().flatten().collect()
+    }
+
+    fn divine(&self) -> [(Id, usize); 2] {
+        let Some(Monkey::Eql(l, r)) = self.0.get("root") else {
+            unimplemented!();
+        };
+
+        let (target, search) = match self.route(l).contains(&"humn") {
+            true => (self.resolve(r), l),
+            false => (self.resolve(l), r),
+        };
+
+        todo!()
     }
 }
 
