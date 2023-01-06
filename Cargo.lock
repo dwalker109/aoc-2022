@@ -5,7 +5,7 @@ version = 3
 [[package]]
 name = "aoc_shared"
 version = "0.4.0"
-source = "git+https://github.com/dwalker109/aoc-shared#e00fc090648c33116f4fe10ba73a4c401c018870"
+source = "git+https://github.com/dwalker109/aoc-shared#204cd0cb0218328082341760ceac2cc8282a9e34"
 
 [[package]]
 name = "day01"
