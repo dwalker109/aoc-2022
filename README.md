@@ -30,3 +30,10 @@ and so on. My part 2 was semi-manually brute forced. Subreddit hints clued me
 in on the maths involved (simple algebra, really) and I replaced the message
 passing stuff with recursive calls which I'm ultimately pretty pleased with.
 
+...**Time Passes**...
+
+### Day 19
+
+Back to complete AoC 2022 after about 11 months away. Day 19 was a challenge and 
+I needed hints from the subreddit to learn the optimisation tricks (factory, not time)
+to get a decent time. Lots of weirdness but eventually finished.
