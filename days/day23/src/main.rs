@@ -10,26 +10,7 @@ fn part1(input: &'static str) -> usize {
     let mut grove = Grove::from(input);
 
     for i in 0..10_usize {
-        let mut remain = HashSet::with_capacity(grove.0.len());
-        let mut moves = HashMap::<Xy, Vec<Xy>>::new();
-
-        'item: for xy in grove.0.iter() {
-            if !has_neighbours(&grove, xy) {
-                remain.insert(*xy);
-                continue 'item;
-            }
-
-            for rule in make_proposal_iter().skip(i.rem_euclid(4)).take(4) {
-                if let Some(p) = rule(&grove, xy) {
-                    (*moves.entry(p).or_default()).push(*xy);
-                    continue 'item;
-                }
-            }
-
-            remain.insert(*xy);
-        }
-
-        grove.update(remain, moves);
+        grove.next(i);
     }
 
     grove.calc_empty_tiles()
@@ -39,33 +20,12 @@ fn part2(input: &'static str) -> usize {
     let mut grove = Grove::from(input);
 
     for i in 0_usize.. {
-        let mut remain = HashSet::with_capacity(grove.0.len());
-        let mut moves = HashMap::<Xy, Vec<Xy>>::new();
-
-        'item: for xy in grove.0.iter() {
-            if !has_neighbours(&grove, xy) {
-                remain.insert(*xy);
-                continue 'item;
-            }
-
-            for rule in make_proposal_iter().skip(i.rem_euclid(4)).take(4) {
-                if let Some(p) = rule(&grove, xy) {
-                    (*moves.entry(p).or_default()).push(*xy);
-                    continue 'item;
-                }
-            }
-
-            remain.insert(*xy);
+        if grove.next(i) == false {
+            return i + 1; // 0 indexed round numbers
         }
-
-        if remain.len() > 0 && moves.iter().all(|(_, p)| p.len() > 1) {
-            return i + 1;
-        }
-
-        grove.update(remain, moves);
     }
 
-    grove.calc_empty_tiles()
+    unreachable!();
 }
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 struct Xy(isize, isize);
@@ -125,19 +85,21 @@ impl From<&str> for Grove {
 }
 
 impl Grove {
-    fn update(&mut self, r: HashSet<Xy>, p: HashMap<Xy, Vec<Xy>>) {
-        self.0 = r;
-
+    fn update(&mut self, mut r: HashSet<Xy>, p: HashMap<Xy, Vec<Xy>>) -> bool {
         for (m, s) in p {
             match s.len() {
                 1 => {
-                    self.0.insert(m);
+                    r.insert(m);
                 }
                 _ => {
-                    self.0.extend(s.iter());
+                    r.extend(s.iter());
                 }
             }
         }
+
+        std::mem::swap(&mut self.0, &mut r);
+
+        self.0.difference(&r).count() != 0
     }
 
     fn calc_empty_tiles(&self) -> usize {
@@ -151,16 +113,13 @@ impl Grove {
 
         (w * h) - self.0.len()
     }
-}
 
-fn all_unoccupied(g: &Grove, l: &[&Xy]) -> bool {
-    !l.iter().any(|&xy| g.0.contains(xy))
-}
+    fn all_unoccupied(&self, l: &[&Xy]) -> bool {
+        !l.iter().any(|&xy| self.0.contains(xy))
+    }
 
-fn has_neighbours(g: &Grove, xy: &Xy) -> bool {
-    !all_unoccupied(
-        g,
-        &[
+    fn has_neighbours(&self, xy: &Xy) -> bool {
+        !self.all_unoccupied(&[
             &xy.n(),
             &xy.ne(),
             &xy.e(),
@@ -169,16 +128,51 @@ fn has_neighbours(g: &Grove, xy: &Xy) -> bool {
             &xy.sw(),
             &xy.w(),
             &xy.nw(),
-        ],
-    )
+        ])
+    }
+
+    fn next(&mut self, i: usize) -> bool {
+        let mut remain = HashSet::with_capacity(self.0.len());
+        let mut moves = HashMap::<Xy, Vec<Xy>>::new();
+
+        'item: for xy in self.0.iter() {
+            if !self.has_neighbours(xy) {
+                remain.insert(*xy);
+                continue 'item;
+            }
+
+            for rule in make_proposal_iter().skip(i.rem_euclid(4)).take(4) {
+                if let Some(p) = rule(&self, xy) {
+                    (*moves.entry(p).or_default()).push(*xy);
+                    continue 'item;
+                }
+            }
+
+            remain.insert(*xy);
+        }
+
+        self.update(remain, moves)
+    }
 }
 
 fn make_proposal_iter() -> Box<dyn Iterator<Item = fn(&Grove, &Xy) -> Option<Xy>>> {
     let fns = [
-        |g: &Grove, xy: &Xy| all_unoccupied(g, &[&xy.n(), &xy.ne(), &xy.nw()]).then_some(xy.n()),
-        |g: &Grove, xy: &Xy| all_unoccupied(g, &[&xy.s(), &xy.se(), &xy.sw()]).then_some(xy.s()),
-        |g: &Grove, xy: &Xy| all_unoccupied(g, &[&xy.w(), &xy.nw(), &xy.sw()]).then_some(xy.w()),
-        |g: &Grove, xy: &Xy| all_unoccupied(g, &[&xy.e(), &xy.ne(), &xy.se()]).then_some(xy.e()),
+        |g: &Grove, xy: &Xy| {
+            g.all_unoccupied(&[&xy.n(), &xy.ne(), &xy.nw()])
+                .then_some(xy.n())
+        },
+        |g: &Grove, xy: &Xy| {
+            g.all_unoccupied(&[&xy.s(), &xy.se(), &xy.sw()])
+                .then_some(xy.s())
+        },
+        |g: &Grove, xy: &Xy| {
+            g.all_unoccupied(&[&xy.w(), &xy.nw(), &xy.sw()])
+                .then_some(xy.w())
+        },
+        |g: &Grove, xy: &Xy| {
+            g.all_unoccupied(&[&xy.e(), &xy.ne(), &xy.se()])
+                .then_some(xy.e())
+        },
     ];
 
     Box::new(fns.into_iter().cycle())

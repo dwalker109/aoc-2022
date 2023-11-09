@@ -167,3 +167,10 @@ version = "0.1.0"
 dependencies = [
  "aoc_shared",
 ]
+
+[[package]]
+name = "day24"
+version = "0.1.0"
+dependencies = [
+ "aoc_shared",
+]
