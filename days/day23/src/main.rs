@@ -7,8 +7,6 @@ fn main() {
 }
 
 fn part1(input: &'static str) -> usize {
-    dbg!(input);
-
     let mut grove = Grove::from(input);
 
     for i in 0..10_usize {
@@ -38,9 +36,37 @@ fn part1(input: &'static str) -> usize {
 }
 
 fn part2(input: &'static str) -> usize {
-    todo!()
-}
+    let mut grove = Grove::from(input);
 
+    for i in 0_usize.. {
+        let mut remain = HashSet::with_capacity(grove.0.len());
+        let mut moves = HashMap::<Xy, Vec<Xy>>::new();
+
+        'item: for xy in grove.0.iter() {
+            if !has_neighbours(&grove, xy) {
+                remain.insert(*xy);
+                continue 'item;
+            }
+
+            for rule in make_proposal_iter().skip(i.rem_euclid(4)).take(4) {
+                if let Some(p) = rule(&grove, xy) {
+                    (*moves.entry(p).or_default()).push(*xy);
+                    continue 'item;
+                }
+            }
+
+            remain.insert(*xy);
+        }
+
+        if remain.len() > 0 && moves.iter().all(|(_, p)| p.len() > 1) {
+            return i + 1;
+        }
+
+        grove.update(remain, moves);
+    }
+
+    grove.calc_empty_tiles()
+}
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 struct Xy(isize, isize);
 
@@ -168,6 +194,6 @@ mod tests {
 
     #[test]
     fn part2() {
-        assert_eq!(super::part2(INPUT), 0);
+        assert_eq!(super::part2(INPUT), 20);
     }
 }
